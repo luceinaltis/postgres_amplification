@@ -74,7 +74,7 @@ COMPILE_OPTION+=" -O3"
 fi
 
 # print zicio stats 
-#COMPILE_OPTION+=" -DZICIO -DZICIO_STAT -I$LIB_HEADER_DIR -lzicio"
+COMPILE_OPTION+=" -DEVAL_AMP"
 echo $COMPILE_OPTION
 
 # configure

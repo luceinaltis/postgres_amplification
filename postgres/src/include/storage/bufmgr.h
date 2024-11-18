@@ -175,6 +175,10 @@ extern PGDLLIMPORT int bgwriter_flush_after;
 
 /* in buf_init.c */
 extern PGDLLIMPORT char *BufferBlocks;
+#ifdef EVAL_AMP
+extern PGDLLIMPORT char *BufferBlocksForReadAmp;
+extern PGDLLIMPORT char *BufferBlocksForWriteAmp;
+#endif
 
 /* in localbuf.c */
 extern PGDLLIMPORT int NLocBuffer;
@@ -198,6 +202,11 @@ extern PGDLLIMPORT int32 *LocalRefCount;
 /*
  * prototypes for functions in bufmgr.c
  */
+#ifdef EVAL_AMP
+extern void ResetBufferForAmp(Buffer buffer);
+extern void CollectAmpForBuffer(Buffer buffer);
+#endif
+
 extern PrefetchBufferResult PrefetchSharedBuffer(struct SMgrRelationData *smgr_reln,
 												 ForkNumber forkNum,
 												 BlockNumber blockNum);
@@ -377,6 +386,26 @@ BufferGetBlock(Buffer buffer)
 	else
 		return (Block) (BufferBlocks + ((Size) (buffer - 1)) * BLCKSZ);
 }
+
+#ifdef EVAL_AMP
+static inline Block
+BufferGetBlockForReadAmp(Buffer buffer)
+{
+	Assert(BufferIsValid(buffer));
+	Assert(!BufferIsLocal(buffer));
+
+	return (Block) (BufferBlocksForReadAmp + ((Size) (buffer - 1)) * BLCKSZ);
+}
+
+static inline Block
+BufferGetBlockForWriteAmp(Buffer buffer)
+{
+	Assert(BufferIsValid(buffer));
+	Assert(!BufferIsLocal(buffer));
+
+	return (Block) (BufferBlocksForWriteAmp + ((Size) (buffer - 1)) * BLCKSZ);
+}
+#endif
 
 /*
  * BufferGetPageSize

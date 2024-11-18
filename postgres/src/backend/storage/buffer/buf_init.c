@@ -23,6 +23,10 @@ char	   *BufferBlocks;
 ConditionVariableMinimallyPadded *BufferIOCVArray;
 WritebackContext BackendWritebackContext;
 CkptSortItem *CkptBufferIds;
+#ifdef EVAL_AMP
+char	   *BufferBlocksForReadAmp;
+char	   *BufferBlocksForWriteAmp;
+#endif
 
 
 /*
@@ -71,6 +75,9 @@ InitBufferPool(void)
 				foundDescs,
 				foundIOCV,
 				foundBufCkpt;
+#ifdef EVAL_AMP
+	bool		foundBufsForReadAmp, foundBufsForWriteAmp;
+#endif
 
 	/* Align descriptors to a cacheline boundary. */
 	BufferDescriptors = (BufferDescPadded *)
@@ -84,6 +91,22 @@ InitBufferPool(void)
 				  ShmemInitStruct("Buffer Blocks",
 								  NBuffers * (Size) BLCKSZ + PG_IO_ALIGN_SIZE,
 								  &foundBufs));
+
+#ifdef EVAL_AMP
+	/* Align buffer pool on IO page size boundary. */
+	BufferBlocksForReadAmp = (char *)
+		TYPEALIGN(PG_IO_ALIGN_SIZE,
+				  ShmemInitStruct("Buffer Blocks For Read Amp",
+								  NBuffers * (Size) BLCKSZ + PG_IO_ALIGN_SIZE,
+								  &foundBufsForReadAmp));
+
+	/* Align buffer pool on IO page size boundary. */
+	BufferBlocksForWriteAmp = (char *)
+		TYPEALIGN(PG_IO_ALIGN_SIZE,
+				  ShmemInitStruct("Buffer Blocks For Write Amp",
+								  NBuffers * (Size) BLCKSZ + PG_IO_ALIGN_SIZE,
+								  &foundBufsForWriteAmp));
+#endif
 
 	/* Align condition variables to cacheline boundary. */
 	BufferIOCVArray = (ConditionVariableMinimallyPadded *)

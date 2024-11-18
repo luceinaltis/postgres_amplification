@@ -67,6 +67,13 @@
 #define BufHdrGetBlock(bufHdr)	((Block) (BufferBlocks + ((Size) (bufHdr)->buf_id) * BLCKSZ))
 #define BufferGetLSN(bufHdr)	(PageGetLSN(BufHdrGetBlock(bufHdr)))
 
+#ifdef EVAL_AMP
+#define BufHdrGetBlockForReadAmp(bufHdr) \
+	((Block) (BufferBlocksForReadAmp + ((Size) (bufHdr)->buf_id) * BLCKSZ))
+#define BufHdrGetBlockForWriteAmp(bufHdr) \
+	((Block) (BufferBlocksForWriteAmp + ((Size) (bufHdr)->buf_id) * BLCKSZ))
+#endif
+
 /* Note: this macro only works on local buffers, not shared ones! */
 #define LocalBufHdrGetBlock(bufHdr) \
 	LocalBufferBlockPointers[-((bufHdr)->buf_id + 2)]
@@ -540,6 +547,48 @@ static inline int buffertag_comparator(const BufferTag *ba, const BufferTag *bb)
 static inline int ckpt_buforder_comparator(const CkptSortItem *a, const CkptSortItem *b);
 static int	ts_ckpt_progress_comparator(Datum a, Datum b, void *arg);
 
+#ifdef EVAL_AMP
+/*
+ * Reset buffers for amplification.
+ */
+void
+ResetBufferForAmp(Buffer buffer)
+{
+	Page readAmpPage = (Page) BufferGetBlockForReadAmp(buffer);
+	Page writeAmpPage = (Page) BufferGetBlockForWriteAmp(buffer);
+	Page mainPage = (Page) BufferGetBlock(buffer);
+
+	memset(readAmpPage, 0, BLCKSZ);
+	memcpy(writeAmpPage, mainPage, BLCKSZ);
+}
+  
+/*
+ * Collect the amplification for a buffer.
+ */
+void
+CollectAmpForBuffer(Buffer buffer)
+{
+	Page readAmpPage = (Page) BufferGetBlockForReadAmp(buffer);
+	Page writeAmpPage = (Page) BufferGetBlockForWriteAmp(buffer);
+	Page mainPage = (Page) BufferGetBlock(buffer);
+	int write_sum = 0;
+	int read_sum = 0;
+
+	for (int offset = 0; offset < BLCKSZ; ++offset)
+	{
+		/* Collect write amp. */
+		if (writeAmpPage[offset] != mainPage[offset])
+			write_sum++;
+		
+		/* Collect read amp. */
+		if (readAmpPage[offset] > 0)
+			read_sum++;
+	}
+
+	fprintf(stderr, "[AMP] wamp %0.2f, ramp: %0.2f\n",
+		(double) write_sum / 100.0, (double) read_sum / 100.0); 
+}
+#endif
 
 /*
  * Implementation of PrefetchBuffer() for shared buffers.
@@ -1079,6 +1128,10 @@ ZeroAndLockBuffer(Buffer buffer, ReadBufferMode mode, bool already_valid)
 		}
 		else
 		{
+#ifdef EVAL_AMP
+			ResetBufferForAmp(BufferDescriptorGetBuffer(bufHdr));
+#endif
+
 			/* Set BM_VALID, terminate IO, and wake up any waiters */
 			TerminateBufferIO(bufHdr, false, BM_VALID, true);
 		}
@@ -1552,6 +1605,9 @@ WaitReadBuffers(ReadBuffersOperation *operation)
 			}
 			else
 			{
+#ifdef EVAL_AMP
+				ResetBufferForAmp(io_buffers[j]);
+#endif
 				/* Set BM_VALID, terminate IO, and wake up any waiters */
 				TerminateBufferIO(bufHdr, false, BM_VALID, true);
 			}
@@ -2438,6 +2494,9 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 		if (lock)
 			LWLockAcquire(BufferDescriptorGetContentLock(buf_hdr), LW_EXCLUSIVE);
 
+#ifdef EVAL_AMP
+		ResetBufferForAmp(buf);	
+#endif
 		TerminateBufferIO(buf_hdr, false, BM_VALID, true);
 	}
 
@@ -3883,6 +3942,10 @@ FlushBuffer(BufferDesc *buf, SMgrRelation reln, IOObject io_object,
 							IOOP_WRITE, io_start, 1);
 
 	pgBufferUsage.shared_blks_written++;
+
+#ifdef EVAL_AMP
+	CollectAmpForBuffer(BufferDescriptorGetBuffer(buf));
+#endif
 
 	/*
 	 * Mark the buffer as clean (unless BM_JUST_DIRTIED has become set) and
