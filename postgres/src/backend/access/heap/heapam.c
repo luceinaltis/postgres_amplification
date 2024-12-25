@@ -1555,6 +1555,7 @@ heap_fetch(Relation relation,
 		return false;
 	}
 
+
 	/*
 	 * get the item line pointer corresponding to the requested tid
 	 */

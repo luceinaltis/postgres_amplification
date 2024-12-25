@@ -193,6 +193,12 @@ BufferShmemSize(void)
 	size = add_size(size, PG_IO_ALIGN_SIZE);
 	size = add_size(size, mul_size(NBuffers, BLCKSZ));
 
+#ifdef EVAL_AMP
+	/* size of pages used in amp collection. */
+	size = add_size(size, mul_size(NBuffers, BLCKSZ));
+	size = add_size(size, mul_size(NBuffers, BLCKSZ));
+#endif
+
 	/* size of stuff controlled by freelist.c */
 	size = add_size(size, StrategyShmemSize());
 

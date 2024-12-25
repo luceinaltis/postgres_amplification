@@ -388,6 +388,17 @@ BufferGetBlock(Buffer buffer)
 }
 
 #ifdef EVAL_AMP
+static inline void
+SetReadAmp(void *offset, int64_t length)
+{
+	int64_t readAmpOffset = (int64_t) offset - (int64_t) BufferBlocks;
+
+	Assert((int64_t) offset >= (int64_t) BufferBlocksForReadAmp);
+	Assert((int64_t) offset + length <= (int64_t) BufferBlocksForReadAmp + BLCKSZ * NBuffers);
+
+	memset((void *) ((int64_t) BufferBlocksForReadAmp + readAmpOffset), 1, length);
+}
+
 static inline Block
 BufferGetBlockForReadAmp(Buffer buffer)
 {

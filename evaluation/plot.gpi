@@ -1,0 +1,30 @@
+set terminal svg size 600, 300 background rgb 'white' font 'Calibri,16'
+set output 'output.svg'
+
+set multiplot
+
+set ytics 0.0, 0.2, 1.0 offset 0.5,0 scale 0
+set xtics 2000, 2000, 8000 offset 0,0.5 scale 0
+set xrange [1:8000]
+set yrange [0:1]
+set grid y
+
+set ylabel "CDF" offset 3,0 font 'Calibri,18'
+set xlabel "Write Amplification" offset 0,1 font 'Calibri,18'
+
+N = floor(system("wc -l output.dat"))
+
+set lmargin at screen 0.11
+set rmargin at screen 0.46
+
+plot "output.dat" u 1:(1.0/N) smooth cumulative w line notitle
+
+set xtics 10
+set xrange [1:40]
+set lmargin at screen 0.60
+set rmargin at screen 0.95
+
+set xlabel "Read Amplification"
+unset ylabel
+
+plot "output.dat" u 2:(1.0/N) smooth cumulative w line notitle

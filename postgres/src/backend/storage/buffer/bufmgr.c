@@ -571,6 +571,7 @@ CollectAmpForBuffer(Buffer buffer)
 	Page readAmpPage = (Page) BufferGetBlockForReadAmp(buffer);
 	Page writeAmpPage = (Page) BufferGetBlockForWriteAmp(buffer);
 	Page mainPage = (Page) BufferGetBlock(buffer);
+	PageHeader pageHeader = (PageHeader) mainPage;
 	int write_sum = 0;
 	int read_sum = 0;
 
@@ -585,8 +586,22 @@ CollectAmpForBuffer(Buffer buffer)
 			read_sum++;
 	}
 
-	fprintf(stderr, "[AMP] wamp %0.2f, ramp: %0.2f\n",
-		(double) write_sum / 100.0, (double) read_sum / 100.0); 
+	if (write_sum == 0)
+		write_sum = 1;
+
+	if (read_sum == 0)
+		read_sum = 1;
+
+	if (pageHeader->pd_special == BLCKSZ)
+	{
+		fprintf(stderr, "[AMP] wamp %0.2f ramp: %0.2f others\n",
+			(double) BLCKSZ / write_sum, (double) BLCKSZ / read_sum); 
+	}
+	else
+	{
+		fprintf(stderr, "[AMP] wamp %0.2f ramp: %0.2f idx\n",
+			(double) BLCKSZ / write_sum, (double) BLCKSZ / read_sum); 
+	}
 }
 #endif
 

@@ -340,6 +340,15 @@ PageGetSpecialPointer(Page page)
 	return (char *) page + ((PageHeader) page)->pd_special;
 }
 
+#ifdef EVAL_AMP
+#include <memory.h>
+
+extern PGDLLIMPORT char *BufferBlocks;
+extern PGDLLIMPORT char *BufferBlocksForReadAmp;
+extern PGDLLIMPORT char *BufferBlocksForWriteAmp;
+extern PGDLLIMPORT int NBuffers;
+#endif
+
 /*
  * PageGetItem
  *		Retrieves an item on the given page.
@@ -351,8 +360,16 @@ PageGetSpecialPointer(Page page)
 static inline Item
 PageGetItem(Page page, ItemId itemId)
 {
+#ifdef EVAL_AMP
+	if (BufferBlocks <= page && page < BufferBlocks + NBuffers * BLCKSZ)
+	{
+		int64_t offset = (int64_t) ((char *) page + (int64_t) ItemIdGetOffset(itemId) - (int64_t) BufferBlocks);
+		memset(BufferBlocksForReadAmp + offset, 1, ItemIdGetLength(itemId));
+	}
+#endif
+
 	Assert(page);
-	Assert(ItemIdHasStorage(itemId));
+    Assert(ItemIdHasStorage(itemId));
 
 	return (Item) (((char *) page) + ItemIdGetOffset(itemId));
 }
